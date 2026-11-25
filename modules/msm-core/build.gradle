@@ -1,0 +1,30 @@
+plugins {
+    id 'java-library'
+}
+
+base {
+    archivesName = 'dapdep-msm-core'
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 8
+}
+
+tasks.register('verifyProfileStore', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.cylox.msm.profile.SessionProfileStoreTest'
+}
+
+tasks.register('verifySessionManager', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.cylox.msm.session.SessionManagerTest'
+}
+
+check.dependsOn verifyProfileStore, verifySessionManager
