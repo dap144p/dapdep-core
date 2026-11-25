@@ -1,24 +1,91 @@
-# MSM Core module
+# MSM Core
 
-This module contains the Minecraft-independent Java domain layer used by Multi Sessions Manager.
+`modules/msm-core` is the Minecraft-independent Java domain module used by Multi Sessions Manager (MSM).
 
-## Included
+It is maintained in the [Dapdep Core](https://github.com/dap144p/dapdep-core) repository and consumed by [MSM-Fabric](https://github.com/dap144p/Multi-Sessions-Manager-Fabric) as a pinned Git submodule. The two Minecraft integrations compile against the same module source.
 
-- Validated session profiles and authentication-mode metadata.
-- Java Properties persistence with temporary-file writes and atomic replacement when supported.
-- In-memory session registry, immutable snapshots, and validated lifecycle transitions.
-- Java 8-compatible bytecode with no Minecraft, Fabric, authentication, or network dependency.
+## Responsibilities
 
-No passwords, Microsoft credentials, access tokens, or session cookies are stored. Microsoft sign-in, independent network connections, chat, reconnect logic, Minecraft UI, and session controls remain MSM-Fabric integration responsibilities.
+| Class | Responsibility |
+|---|---|
+| `profile.SessionAuthMode` | Authentication-mode metadata (`MICROSOFT`, `OFFLINE_LOCAL`) |
+| `profile.SessionProfile` | Immutable, validated account/server profile |
+| `profile.SessionProfileStore` | Ordered profile persistence using Java Properties |
+| `session.SessionManager` | In-memory registry, lookup, snapshots, and lifecycle transition validation |
+| `session.SessionState` | Session lifecycle state model |
+
+## Behavior and invariants
+
+### SessionProfile
+
+- Username is trimmed and must match `[A-Za-z0-9_]{1,16}`.
+- Server address is trimmed and must contain 1–255 characters.
+- Authentication mode is mandatory.
+- The legacy two-argument constructor remains available and defaults to `MICROSOFT`.
+- The value is immutable and implements equality/hash semantics across all profile fields.
+
+### SessionProfileStore
+
+- Stores an ordered list in Java Properties format.
+- Missing profile file loads as an empty list.
+- A malformed count, invalid profile, or inconsistent stored entry raises an `IOException`.
+- Missing legacy `authMode` values default to `MICROSOFT`; explicit blank/unknown values are rejected.
+- Saving creates parent directories, writes a temporary file, and attempts atomic replacement before falling back when atomic moves are unsupported.
+- Credentials and tokens are not part of the persisted schema.
+
+### SessionManager
+
+- Maintains insertion order and generates in-memory numeric IDs.
+- Rejects null and duplicate profiles.
+- Provides lookup by ID/profile and immutable snapshots.
+- Synchronizes registry operations.
+- Allows only the transitions defined by `SessionState`.
+- Prevents removal while a session is `CONNECTING` or `ONLINE`.
+- Does not create threads, sockets, Minecraft clients, or reconnect jobs.
+
+## Lifecycle transition table
+
+| From | To |
+|---|---|
+| `OFFLINE` | `CONNECTING` |
+| `CONNECTING` | `ONLINE`, `DISCONNECTED`, `FAILED` |
+| `ONLINE` | `DISCONNECTED`, `FAILED` |
+| `DISCONNECTED` | `CONNECTING` |
+| `FAILED` | `CONNECTING` |
+
+## Explicit exclusions
+
+This module does not implement:
+
+- Microsoft OAuth or account login.
+- Password, access-token, or cookie storage.
+- Minecraft protocol codecs, sockets, packet handling, or server authentication.
+- Fabric entrypoints, mixins, screens, input handling, or rendering.
+- AutoChat, AutoReconnect, connection scheduling, or game-version adapters.
+
+Those responsibilities belong to MSM-Fabric or a separately designed integration module.
 
 ## Compatibility
 
-The module retains the existing `dev.cylox.msm` package and public API to avoid breaking current MSM-Fabric integrations.
+- Package namespace: `dev.cylox.msm` (retained for existing source compatibility).
+- Java source/target and compiler API release: Java 8.
+- No Minecraft, Fabric, auth-provider, or network dependencies.
+- Existing profile schema remains compatible with legacy records that omit `authMode`.
 
-## Verification
+## Build and verification
 
-Run from the Dapdep Core repository root:
+Requirements: JDK 17 and Gradle 8.7 (or compatible Gradle 8.x). The module compiles with Java 8 API compatibility.
+
+From the Dapdep Core repository root:
 
 ```sh
-gradle :modules:msm-core:clean :modules:msm-core:check
+gradle --no-daemon :modules:msm-core:clean :modules:msm-core:check
 ```
+
+The module's `check` task compiles tests and runs the profile-store and session-manager verification entry points.
+
+## Consumer integration
+
+MSM-Fabric includes this directory as Gradle project `:msm-core` from its `dapdep-core` Git submodule. Both supported Minecraft builds package the module classes into their own final JAR. Players install only the matching MSM-Fabric JAR; no separate Core JAR is required.
+
+See [Dapdep Core Architecture](../../ARCHITECTURE.md) and the [MSM-Fabric README](https://github.com/dap144p/Multi-Sessions-Manager-Fabric#architecture-and-core-integration).
