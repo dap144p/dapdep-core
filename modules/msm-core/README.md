@@ -10,7 +10,9 @@ It is maintained in the [Dapdep Core](https://github.com/dap144p/dapdep-core) re
 |---|---|
 | `profile.SessionAuthMode` | Authentication-mode metadata (`MICROSOFT`, `OFFLINE_LOCAL`) |
 | `profile.SessionProfile` | Immutable, validated account/server profile |
-| `profile.SessionProfileStore` | Ordered profile persistence using Java Properties |
+| `profile.SessionProfileStore` | Ordered server-profile persistence using Java Properties |
+| `profile.AccountIdentity` | Immutable, validated account identity independent of a server |
+| `profile.AccountIdentityStore` | Ordered account-identity persistence using Java Properties |
 | `session.SessionManager` | In-memory registry, lookup, snapshots, and lifecycle transition validation |
 | `session.SessionState` | Session lifecycle state model |
 
@@ -20,6 +22,19 @@ It is maintained in the [Dapdep Core](https://github.com/dap144p/dapdep-core) re
 
 - Username is trimmed and must match `[A-Za-z0-9_]{1,16}`.
 - Server address is trimmed and must contain 1–255 characters.
+
+### AccountIdentity
+
+- Stores a validated username and authentication mode without requiring a server address.
+- Uses the same 1–16 character username validation as `SessionProfile`.
+- Is persisted separately from server profiles so accounts can exist with zero configured servers.
+
+### AccountIdentityStore
+
+- Stores an ordered list of account identities in `msm-accounts.properties`.
+- Missing file loads as an empty list; malformed entries raise an `IOException`.
+- Uses temporary-file writes and atomic replacement when supported.
+- Does not store credentials or tokens.
 - Authentication mode is mandatory.
 - The legacy two-argument constructor remains available and defaults to `MICROSOFT`.
 - The value is immutable and implements equality/hash semantics across all profile fields.
