@@ -27,4 +27,10 @@ tasks.register('verifySessionManager', JavaExec) {
     mainClass = 'dev.cylox.msm.session.SessionManagerTest'
 }
 
-check.dependsOn verifyProfileStore, verifySessionManager
+tasks.register('verifyAccountIdentityStore', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.cylox.msm.profile.AccountIdentityStoreTest'
+}
+
+check.dependsOn verifyProfileStore, verifySessionManager, verifyAccountIdentityStore
